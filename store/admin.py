@@ -29,7 +29,7 @@ class CollectionAdmin(admin.ModelAdmin):
 
 
 class ProductImageInline(admin.TabularInline):
-    model = Product.images.through  # Use the through model for ManyToManyField
+    model = Product.images.through  # ManyToManyField handling
     extra = 1  # Number of empty forms to display
 
 # Inline for ProductVariant
@@ -45,22 +45,19 @@ class ProductVariantInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    # Manage ProductImages and ProductVariants inline
+    # Manage images and variants inline
     inlines = [ProductImageInline, ProductVariantInline]
-    # Display fields in the list view
-    list_display = ('title', 'collection', 'created_at')
-    # Enable search by title and description
-    search_fields = ('title', 'description')
-    list_filter = ('collection',)  # Enable filtering by collection
-    # Exclude the images field since we're using an inline
-    exclude = ('images',)
+    list_display = ('title', 'collection', 'created_at')  # Display fields
+    search_fields = ('title', 'description')  # Search by title and description
+    list_filter = ('collection',)  # Filter by collection
+    exclude = ('images',)  # Exclude images since we use inlines
 
 # Admin for ProductImage
 
 
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):
-    list_display = ('id', 'image')  # Display fields in the list view
+    list_display = ('id', 'image')  # Display fields
     search_fields = ('id',)  # Enable search by ID
 
 # Admin for ProductVariant
@@ -68,11 +65,9 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
-    # Display fields in the list view
-    list_display = ('product', 'stock', 'attributes_display')
+    list_display = ('product', 'stock', 'attributes_display')  # Display fields
     search_fields = ('product__title',)  # Enable search by product title
-    # Enable filtering by product collection
-    list_filter = ('product__collection',)
+    list_filter = ('product__collection',)  # Filter by product collection
 
     def attributes_display(self, obj):
         return ", ".join([str(val) for val in obj.attributes.all()])

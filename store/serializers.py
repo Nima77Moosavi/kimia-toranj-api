@@ -5,11 +5,12 @@ from .models import Product, ProductImage, ProductVariant, AttributeValue, Colle
 class AttributeValueSerializer(serializers.ModelSerializer):
     class Meta:
         model = AttributeValue
-        fields = ['id', 'value', 'attribute']
+        fields = ['id', 'value']
 
 
 class AttributeSerializer(serializers.ModelSerializer):
-    values = AttributeValueSerializer(many=True, read_only=True)
+    values = AttributeValueSerializer(
+        many=True, read_only=True)
 
     class Meta:
         model = Attribute
@@ -41,7 +42,6 @@ class CollectionSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)
-    collection = CollectionSerializer(read_only=True)
 
     class Meta:
         model = Product

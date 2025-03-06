@@ -11,11 +11,18 @@ from .filters import ProductFilter
 class CollectionViewSet(viewsets.ModelViewSet):
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer
-    
+
     @action(methods=['get'], detail=True)
     def products(self, request, pk=None):
         collection = self.get_object()
+        # Apply filters to the products queryset for this collection
         products = Product.objects.filter(collection=collection)
+
+        # Apply filtering if filter params are passed in the request
+        product_filter = ProductFilter(request.GET, queryset=products)
+        if product_filter.is_valid():
+            products = product_filter.qs
+
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
 
