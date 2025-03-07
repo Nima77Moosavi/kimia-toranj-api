@@ -23,7 +23,8 @@ class CollectionViewSet(viewsets.ModelViewSet):
         if product_filter.is_valid():
             products = product_filter.qs
 
-        serializer = ProductSerializer(products, many=True)
+        serializer = ProductSerializer(
+            products, many=True, context={'request': request})
         return Response(serializer.data)
 
 

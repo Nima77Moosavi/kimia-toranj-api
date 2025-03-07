@@ -18,6 +18,8 @@ class AttributeSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(use_url=True)
+
     class Meta:
         model = ProductImage
         fields = ['id', 'image']
