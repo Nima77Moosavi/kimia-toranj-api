@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'django_filters',
     'django_otp',
     'django_otp.plugins.otp_totp',  # For Time-Based OTP
     'users',
