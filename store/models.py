@@ -33,7 +33,9 @@ class AttributeValue(models.Model):
 
 
 class ProductImage(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='products/')
+    
 
     def __str__(self):
         return f"Image {self.id}"
@@ -45,7 +47,6 @@ class Product(models.Model):
     collection = models.ForeignKey(
         Collection, on_delete=models.PROTECT, related_name='products'
     )
-    images = models.ManyToManyField(ProductImage, related_name='products')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

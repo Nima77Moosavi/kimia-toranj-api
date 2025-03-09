@@ -1,5 +1,6 @@
 from django_filters import rest_framework as filters
 from .models import Product
+from django.db.models import Q
 
 
 class ProductFilter(filters.FilterSet):
@@ -14,11 +15,18 @@ class ProductFilter(filters.FilterSet):
         fields = ['attribute', 'min_price', 'max_price']
 
     def filter_by_attribute(self, queryset, name, value):
+        # Initialize an empty Q object
+        attribute_conditions = Q()
+
         # Split the attribute filter into key-value pairs
-        # Example: attribute=Color:Red,Size:Small
-        filters = {}
         for pair in value.split(','):
-            key, val = pair.split(':')
-            filters[f'variants__attributes__attribute__name'] = key
-            filters[f'variants__attributes__value'] = val
-        return queryset.filter(**filters).distinct()
+            if ':' in pair:
+                key, val = pair.split(':')
+                # Add each condition to the Q object using OR logic
+                attribute_conditions |= Q(
+                    variants__attributes__attribute__name=key,
+                    variants__attributes__value=val,
+                )
+
+        # Apply the combined conditions to the queryset
+        return queryset.filter(attribute_conditions).distinct()
