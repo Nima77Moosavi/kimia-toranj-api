@@ -11,7 +11,7 @@ class Collection(models.Model):
 
 
 class Attribute(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     collection = models.ForeignKey(
         Collection, on_delete=models.CASCADE, related_name='attributes', null=True
     )  # Link Attribute to Collection instead of AttributeValue
@@ -33,9 +33,9 @@ class AttributeValue(models.Model):
 
 
 class ProductImage(models.Model):
-    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='images')
+    product = models.ForeignKey(
+        'Product', on_delete=models.CASCADE, related_name='images', null=True)
     image = models.ImageField(upload_to='products/')
-    
 
     def __str__(self):
         return f"Image {self.id}"

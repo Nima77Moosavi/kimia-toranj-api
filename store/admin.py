@@ -29,7 +29,7 @@ class CollectionAdmin(admin.ModelAdmin):
 
 
 class ProductImageInline(admin.TabularInline):
-    model = Product.images.through  # ManyToManyField handling
+    model = ProductImage  # Use ProductImage directly
     extra = 1  # Number of empty forms to display
 
 # Inline for ProductVariant
