@@ -1,6 +1,7 @@
 from django.shortcuts import render
-from .serializers import CollectionSerializer, ProductSerializer, ProductImageSerializer, ProductVariantSerializer
-from .models import Collection, Product, ProductImage, ProductVariant
+from .serializers import (CollectionSerializer, ProductSerializer, ProductImageSerializer, ProductVariantSerializer,
+                          AttributeSerializer, AttributeValueSerializer)
+from .models import Collection, Product, ProductImage, ProductVariant, Attribute, AttributeValue
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -38,12 +39,18 @@ class ProductViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]
 
     def create(self, request, *args, **kwargs):
+        # Parse the product data and create the product
         serializer = ProductSerializer(data=request.data)
         if serializer.is_valid():
+            # Save the product
             product = serializer.save()
+
+            # Now handle the images associated with this product
             images = request.FILES.getlist('images')
             for image in images:
-                ProductImage.objects.create(image=image, products=product)
+                # Create a ProductImage instance and associate it with the product
+                ProductImage.objects.create(product=product, image=image)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -55,20 +62,47 @@ class ProductImageViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]
 
     def create(self, request, *args, **kwargs):
-        # Get the product ID from the URL or the request data
+        # Get the product ID from the request data
         product_id = request.data.get('product')
-        product = Product.objects.get(id=product_id)
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate that 'images' is in the request
+        # Validate that 'images' are uploaded in the request
         images = request.FILES.getlist('images')
         if not images:
             return Response({"error": "No images uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
         for image in images:
-            # Create product image and associate it with the product
-            ProductImage.objects.create(image=image, product=product)
+            # Create ProductImage instances and associate them with the product
+            ProductImage.objects.create(product=product, image=image)
 
         return Response({"status": "Images uploaded successfully!"}, status=status.HTTP_201_CREATED)
+
+
+class AttributeViewSet(viewsets.ModelViewSet):
+    serializer_class = AttributeSerializer
+
+    def get_queryset(self):
+        collection_id = self.request.query_params.get('collection', None)
+        if collection_id is not None:
+            return Attribute.objects.filter(collection_id=collection_id)
+        return Attribute.objects.all()
+
+    @action(detail=True, methods=['post'])
+    def add_value(self, request, pk=None):
+        attribute = self.get_object()
+        value = request.data.get('value')
+
+        if value:
+            # Create the new attribute value
+            attribute_value = AttributeValue.objects.create(
+                attribute=attribute, value=value)
+            return Response({"id": attribute_value.id, "value": attribute_value.value}, status=status.HTTP_201_CREATED)
+
+        serializer = AttributeValueSerializer(attribute_value)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ProductVariantViewSet(viewsets.ModelViewSet):

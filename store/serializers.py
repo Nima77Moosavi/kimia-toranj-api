@@ -9,12 +9,13 @@ class AttributeValueSerializer(serializers.ModelSerializer):
 
 
 class AttributeSerializer(serializers.ModelSerializer):
-    values = AttributeValueSerializer(
-        many=True, read_only=True)
+    values = AttributeValueSerializer(many=True, read_only=True)
+    collection = serializers.PrimaryKeyRelatedField(
+        queryset=Collection.objects.all())
 
     class Meta:
         model = Attribute
-        fields = ['id', 'name', 'values']
+        fields = ['id', 'name', 'values', 'collection']
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -42,7 +43,8 @@ class CollectionSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, read_only=True)
+    # Make the images field writable so that it can accept image files when creating/updating the product.
+    images = ProductImageSerializer(many=True, required=False)
     variants = ProductVariantSerializer(many=True, read_only=True)
 
     class Meta:
@@ -51,3 +53,29 @@ class ProductSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'collection',
             'images', 'variants', 'created_at', 'updated_at'
         ]
+
+    def create(self, validated_data):
+        images_data = validated_data.pop('images', [])
+        product = Product.objects.create(**validated_data)
+
+        # Handle images separately
+        for image_data in images_data:
+            ProductImage.objects.create(product=product, **image_data)
+
+        return product
+
+    def update(self, instance, validated_data):
+        images_data = validated_data.pop('images', [])
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get(
+            'description', instance.description)
+        instance.collection = validated_data.get(
+            'collection', instance.collection)
+        instance.save()
+
+        # Update images (delete existing ones and add new ones)
+        instance.images.all().delete()  # Remove old images
+        for image_data in images_data:
+            ProductImage.objects.create(product=instance, **image_data)
+
+        return instance
