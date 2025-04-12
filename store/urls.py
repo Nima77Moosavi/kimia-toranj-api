@@ -4,9 +4,9 @@ from .views import CollectionViewSet, ProductViewSet, ProductImageViewSet, Produ
 
 router = DefaultRouter()
 router.register(r'collections', CollectionViewSet, basename='collection')
-router.register(r'products', ProductViewSet)
-router.register(r'product-images', ProductImageViewSet)
-router.register(r'variants', ProductVariantViewSet)
+router.register(r'products', ProductViewSet, basename='product')
+router.register(r'product-images', ProductImageViewSet, basename='product-image')
+router.register(r'variants', ProductVariantViewSet, basename='variant')
 router.register(r'attributes', AttributeViewSet, basename='attribute')
 
 
