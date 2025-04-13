@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import SendOTPSerializer, VerifyOTPSerializer
 from .models import User, OTP
-from .utils import generate_otp
+from .utils import send_otp
 
 
 class SendOTPView(APIView):
@@ -13,7 +13,7 @@ class SendOTPView(APIView):
             phone_number = serializer.validated_data['phone_number']
 
             # Generate and send OTP
-            generate_otp(phone_number)
+            send_otp(phone_number)
 
             return Response({"message": "OTP sent successfully."})
         return Response(serializer.errors, status=400)

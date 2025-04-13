@@ -1,4 +1,6 @@
+from .models import Collection, Attribute
 from rest_framework import serializers
+from collections import Counter
 from django.utils.translation import gettext_lazy as _
 from .models import (
     Collection,
@@ -46,31 +48,87 @@ class AttributeSerializer(serializers.ModelSerializer):
 # ------------------------------------------------------------------
 # Collection Serializer
 # ------------------------------------------------------------------
+
+class NestedCollectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Collection
+        fields = ['id', 'title']
+
+
 class CollectionSerializer(serializers.ModelSerializer):
+    # This field returns the immediate parent as a nested object.
+    parent = NestedCollectionSerializer(read_only=True)
+    # For writes, we accept a parent's ID via this write-only field.
+    parent_id = serializers.PrimaryKeyRelatedField(
+        queryset=Collection.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+    # When reading, also return the chain of all parents (ancestors).
+    all_parents = serializers.SerializerMethodField()
+    # The attributes are nested in the output.
     attributes = AttributeSerializer(many=True, read_only=True)
-    # For writes, you can pass an array of attribute IDs.
+    # For writes, accept an array of attribute IDs.
     attribute_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         write_only=True,
         queryset=Attribute.objects.all(),
         required=False
     )
+    # Nest immediate children (sub-collections).
+    sub_collections = NestedCollectionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Collection
-        fields = ['id', 'title', 'description',
-                  'image', 'attributes', 'attribute_ids']
+        fields = [
+            'id',
+            'title',
+            'parent',         # read-only representation of the immediate parent
+            'parent_id',      # write-only field for setting the parent
+            'all_parents',    # read-only list of all ancestors
+            'description',
+            'image',
+            'attributes',     # read-only nested attributes
+            'attribute_ids',  # write-only attribute IDs
+            'sub_collections'  # read-only list of direct child collections
+        ]
+
+    def get_all_parents(self, obj):
+        """
+        Returns a list of all parent collections (ancestors),
+        starting with the immediate parent and working upward.
+        """
+        parents = []
+        current = obj.parent  # using the `parent` field from the model
+        while current:
+            # Use the lightweight serializer to represent each parent.
+            serializer = NestedCollectionSerializer(
+                current, context=self.context)
+            parents.append(serializer.data)
+            current = current.parent
+        return parents
 
     def create(self, validated_data):
+        # Pop off write-only fields.
+        parent = validated_data.pop('parent_id', None)
         attribute_ids = validated_data.pop('attribute_ids', [])
-        collection = super().create(validated_data)
+        # Create the collection instance.
+        instance = super().create(validated_data)
+        if parent:
+            instance.parent = parent
+            instance.save()
         if attribute_ids:
-            collection.attributes.set(attribute_ids)
-        return collection
+            instance.attributes.set(attribute_ids)
+        return instance
 
     def update(self, instance, validated_data):
+        parent = validated_data.pop('parent_id', None)
         attribute_ids = validated_data.pop('attribute_ids', None)
         instance = super().update(instance, validated_data)
+        if parent is not None:
+            instance.parent = parent
+            instance.save()
         if attribute_ids is not None:
             instance.attributes.set(attribute_ids)
         return instance
@@ -110,21 +168,30 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        Validate that the provided attribute values cover all attributes
-        required by the product's collection.
+        Validate that:
+          1. Only one AttributeValue is provided per Attribute.
+          2. The provided attribute values cover all attributes required by the product's collection.
         """
         product = data.get('product')
-        # This will be a list of AttributeValue instances.
+        # List of AttributeValue instances
         attribute_values = data.get('attribute_ids')
 
-        # Build a set of attribute IDs that were provided.
-        provided_attribute_ids = {
-            attr_val.attribute.id for attr_val in attribute_values}
+        # Check that each attribute is represented only once.
+        attr_id_list = [attr_val.attribute.id for attr_val in attribute_values]
+        counter = Counter(attr_id_list)
+        for attr_id, count in counter.items():
+            if count > 1:
+                raise serializers.ValidationError({
+                    'attribute_ids': f"Multiple values provided for attribute ID {attr_id}. Select only one value per attribute."
+                })
+
+        # Build a set of provided attribute IDs.
+        provided_attribute_ids = set(attr_id_list)
         # Retrieve all required attribute IDs from the product's collection.
         required_attribute_ids = set(
-            product.collection.attributes.values_list('id', flat=True)
-        )
+            product.collection.attributes.values_list('id', flat=True))
         missing_attributes = required_attribute_ids - provided_attribute_ids
+
         if missing_attributes:
             raise serializers.ValidationError({
                 'attribute_ids': (
@@ -150,7 +217,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    collection = CollectionSerializer(read_only=True)
+    # collection = CollectionSerializer(read_only=True)
     # Write: accept collection's primary key.
     collection_id = serializers.PrimaryKeyRelatedField(
         source='collection',
@@ -164,7 +231,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'title', 'description',
-            'collection', 'collection_id',
+            'collection_id',
             'created_at', 'updated_at',
             'variants', 'images'
         ]

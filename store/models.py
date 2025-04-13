@@ -1,31 +1,37 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.conf import settings
 
 
 class Collection(models.Model):
     title = models.CharField(
-        max_length=255, verbose_name="عنوان مجموعه")
+        max_length=255, verbose_name="عنوان دسته بندی")
+    parent = models.ForeignKey(
+        'self', on_delete=models.PROTECT, related_name='subcollections',
+        null=True, blank=True, verbose_name=" دسته بندی والد"
+    )
     description = models.TextField(
         null=True, blank=True, verbose_name="توضیحات")
     image = models.ImageField(
-        upload_to='collections/', verbose_name="تصویر مجموعه")
-    attributes = models.ManyToManyField(
-        'Attribute', related_name='collections', blank=True, verbose_name="ویژگی‌ها")
+        upload_to='collections/', verbose_name="تصویر دسته بندی")
 
     def __str__(self):
         return self.title
 
     class Meta:
-        verbose_name = "مجموعه"
-        verbose_name_plural = "مجموعه‌ها"
+        verbose_name = "دسته بندی"
+        verbose_name_plural = "دسته بندی ها"
 
 
 class Attribute(models.Model):
     title = models.CharField(
         max_length=255, verbose_name="عنوان ویژگی")
-    
+    collection = models.ForeignKey(
+        Collection, on_delete=models.CASCADE, null=True, related_name='attributes', verbose_name="دسته بندی"
+    )
+
     def __str__(self):
-        return self.title
+        return f'{self.title} ({self.collection.title})'
 
     class Meta:
         verbose_name = "ویژگی"
@@ -39,7 +45,7 @@ class AttributeValue(models.Model):
         max_length=255, verbose_name="مقدار ویژگی")
 
     def __str__(self):
-        return f"{self.value} ({self.attribute.title})"
+        return f"{self.value} ({self.attribute})"
 
     class Meta:
         verbose_name = "مقدار ویژگی"
@@ -82,16 +88,39 @@ class Product(models.Model):
 
 class ProductVariant(models.Model):
     product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name='variants', verbose_name="محصول")
+        'Product', on_delete=models.CASCADE, related_name='variants', verbose_name="محصول"
+    )
     attributes = models.ManyToManyField(
-        AttributeValue, related_name='variants', verbose_name="ویژگی‌ها")
+        'AttributeValue', related_name='variants', verbose_name="ویژگی‌ها"
+    )
     price = models.DecimalField(
-        max_digits=12, decimal_places=0, null=True, verbose_name="قیمت")
+        max_digits=12, decimal_places=0, null=True, verbose_name="قیمت"
+    )
     stock = models.PositiveIntegerField(
-        default=0, verbose_name="موجودی انبار")
+        default=0, verbose_name="موجودی انبار"
+    )
 
     def __str__(self):
-        return f"{self.product.title} - {', '.join([str(val) for val in self.attributes.all()])}"
+        # If the object is not yet saved, there may be no M2M data available.
+        if not self.pk:
+            return f"{self.product.title} - (بدون ویژگی)"
+        # Retrieve the attribute values.
+        attr_values = self.attributes.all()
+        if attr_values.exists():
+            attr_string = ", ".join([str(val) for val in attr_values])
+        else:
+            attr_string = "(بدون ویژگی)"
+        return f"{self.product.title} - {attr_string}"
+
+    def clean(self):
+        # Only validate many-to-many data if the instance has already been saved.
+        if self.pk:
+            attribute_ids = list(
+                self.attributes.values_list('attribute_id', flat=True))
+            if len(attribute_ids) != len(set(attribute_ids)):
+                raise ValidationError(
+                    "Each variant must have only one value per attribute (e.g., one color, one size)."
+                )
 
     class Meta:
         verbose_name = "نوع محصول"

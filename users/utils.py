@@ -2,7 +2,7 @@ import random
 from django.utils import timezone
 from .models import OTP
 
-def generate_otp(phone_number):
+def send_otp(phone_number):
     code = ''.join(random.choices('0123456789', k=6))
     expires_at = timezone.now() + timezone.timedelta(minutes=2)
     
