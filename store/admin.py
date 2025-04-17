@@ -74,6 +74,7 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductImageInline, ProductVariantInline]
     list_display = ('title', 'collection', 'created_at')
     search_fields = ('title', 'description')
+    autocomplete_fields = ('collection',)  # For better UX in large datasets
     list_filter = ('collection',)
     exclude = ('images',)  # Exclude images field since they are inlined.
 

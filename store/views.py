@@ -4,6 +4,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
+from rest_framework import permissions
 from django_filters import rest_framework as filters
 
 from .serializers import (
@@ -26,12 +27,7 @@ from .filters import ProductFilter
 
 
 class CollectionViewSet(viewsets.ModelViewSet):
-    """
-    CollectionViewSet returns all collections.
-    It also provides a custom action `products` to return all products for a given collection,
-    applying filtering and query optimization.
-    """
-    queryset = Collection.objects.all()
+    queryset = Collection.objects.prefetch_related('subcollections').all()
     serializer_class = CollectionSerializer
 
     @action(methods=['get'], detail=True)
@@ -61,14 +57,11 @@ class CollectionViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    """
-    ProductViewSet manages the CRUD of Products.
-    It uses query optimization in get_queryset and handles image uploads in the create() method.
-    """
     serializer_class = ProductSerializer
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = ProductFilter
     parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         # Optimize queries by selecting the collection and prefetching related variants and images.

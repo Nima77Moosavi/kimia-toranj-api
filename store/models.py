@@ -13,7 +13,7 @@ class Collection(models.Model):
     description = models.TextField(
         null=True, blank=True, verbose_name="توضیحات")
     image = models.ImageField(
-        upload_to='collections/', verbose_name="تصویر دسته بندی")
+        upload_to='collections/', verbose_name="تصویر دسته بندی", null=True, blank=True)
 
     def __str__(self):
         return self.title
@@ -52,20 +52,6 @@ class AttributeValue(models.Model):
         verbose_name_plural = "مقادیر ویژگی‌ها"
 
 
-class ProductImage(models.Model):
-    product = models.ForeignKey(
-        'Product', on_delete=models.CASCADE, related_name='images', null=True, verbose_name="محصول")
-    image = models.ImageField(
-        upload_to='products/', verbose_name="تصویر محصول")
-
-    def __str__(self):
-        return f"Image {self.id}"
-
-    class Meta:
-        verbose_name = "تصویر محصول"
-        verbose_name_plural = "تصاویر محصولات"
-
-
 class Product(models.Model):
     title = models.CharField(
         max_length=255, verbose_name="عنوان محصول")
@@ -86,12 +72,26 @@ class Product(models.Model):
         verbose_name_plural = "محصولات"
 
 
+class ProductImage(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name='images', null=True, verbose_name="محصول")
+    image = models.ImageField(
+        upload_to='products/', verbose_name="تصویر محصول")
+
+    def __str__(self):
+        return f"Image {self.id}"
+
+    class Meta:
+        verbose_name = "تصویر محصول"
+        verbose_name_plural = "تصاویر محصولات"
+
+
 class ProductVariant(models.Model):
     product = models.ForeignKey(
-        'Product', on_delete=models.CASCADE, related_name='variants', verbose_name="محصول"
+        Product, on_delete=models.CASCADE, related_name='variants', verbose_name="محصول"
     )
     attributes = models.ManyToManyField(
-        'AttributeValue', related_name='variants', verbose_name="ویژگی‌ها"
+        AttributeValue, related_name='variants', verbose_name="ویژگی‌ها"
     )
     price = models.DecimalField(
         max_digits=12, decimal_places=0, null=True, verbose_name="قیمت"
@@ -111,16 +111,6 @@ class ProductVariant(models.Model):
         else:
             attr_string = "(بدون ویژگی)"
         return f"{self.product.title} - {attr_string}"
-
-    def clean(self):
-        # Only validate many-to-many data if the instance has already been saved.
-        if self.pk:
-            attribute_ids = list(
-                self.attributes.values_list('attribute_id', flat=True))
-            if len(attribute_ids) != len(set(attribute_ids)):
-                raise ValidationError(
-                    "Each variant must have only one value per attribute (e.g., one color, one size)."
-                )
 
     class Meta:
         verbose_name = "نوع محصول"
