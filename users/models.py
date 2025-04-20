@@ -1,8 +1,19 @@
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 import random
+
+
+SCORE_VALUES = {
+    'daily_login': 10,
+    'referral': 20,
+    'order': 30,
+}
 
 
 class UserManager(BaseUserManager):
@@ -52,6 +63,7 @@ class User(AbstractBaseUser):
         },
     )
     date_joined = models.DateTimeField(auto_now_add=True, null=True)
+    total_score = models.PositiveIntegerField(default=0)
 
     # Track user status
     is_active = models.BooleanField(default=True)
@@ -98,10 +110,53 @@ class OTP(models.Model):
     def is_valid(self):
         return timezone.now() <= self.expires_at
 
+
 class BlacklistedAccessToken(models.Model):
     jti = models.CharField(max_length=255, unique=True)
     blacklisted_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return self.jti
-    
+
+
+class ScoreEvent(models.Model):
+    TITLE_CHOICES = [
+        ('daily_login', 'Daily Login'),
+        ('referral', 'Referral'),
+        ('order', 'Order'),
+    ]
+    title = models.CharField(max_length=255, choices=TITLE_CHOICES)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    event_date = models.DateField(default=timezone.now)
+    order_id = models.CharField(max_length=255, null=True, blank=True)
+    referral_phone_number = models.CharField(
+        max_length=15, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'event_date'],
+                condition=Q(title='daily_login'),
+                name='unique_daily_login_per_user_per_day'
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'order_id'],
+                condition=Q(title='order'),
+                name='unique_order_constraint'
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'referral_phone_number'],
+                condition=Q(title='referral'),
+                name='unique_referral_constraint'
+            ),
+        ]
+        
+
+@receiver(post_save, sender=ScoreEvent)
+def update_user_total_score(sender, instance, created, **kwargs):
+    if created:
+        # Update the user's total score based on the event typeّ
+        score_value = SCORE_VALUES.get(instance.title, 0)
+        instance.user.total_score += score_value
+        instance.user.save()
