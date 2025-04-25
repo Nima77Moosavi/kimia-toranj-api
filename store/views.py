@@ -61,7 +61,6 @@ class ProductViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = ProductFilter
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         # Optimize queries by selecting the collection and prefetching related variants and images.
