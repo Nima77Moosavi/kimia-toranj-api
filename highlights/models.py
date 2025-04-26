@@ -8,6 +8,10 @@ class Highlight(models.Model):
 
     def __str__(self):
         return self.title
+    
+    class Meta:
+        verbose_name = "هایلایت"
+        verbose_name_plural = "هایلایت‌ها"
 
 
 class HighlightMedia(models.Model):
@@ -24,8 +28,8 @@ class HighlightMedia(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "هایلایت"
-        verbose_name_plural = "هایلایت ها"
+        verbose_name = "محتوای هایلایت"
+        verbose_name_plural = " محتوای هایلایت‌ها"
 
     def __str__(self):
         return f"{self.media_type.capitalize()} for {self.highlight.title}"
